@@ -12,7 +12,7 @@ var configuration = Argument("configuration", "Release");
 //////////////////////////////////////////////////////////////////////
 
 // Define directories.
-const string ProjectName = "Furysoft.Serializers.Versioning";
+const string ProjectName = "Furysoft.Queuing.AzureStorage";
 
 var buildDir = Directory("./src/Component/" + ProjectName + "/bin") + Directory(configuration);
 

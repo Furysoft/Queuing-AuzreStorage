@@ -12,9 +12,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Component", "Component", "{
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{64415B53-11D0-4ADA-B1D6-179CF44608CD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Furysoft.Queuing.AzureStorage", "Component\Furysoft.Queuing.AzureStorage\Furysoft.Queuing.AzureStorage.csproj", "{90AA79AD-FBA0-4468-BDE9-209AA96A93C6}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Furysoft.Queuing.AzureStorage", "Component\Furysoft.Queuing.AzureStorage\Furysoft.Queuing.AzureStorage.csproj", "{90AA79AD-FBA0-4468-BDE9-209AA96A93C6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Furysoft.Queuing.AzureStorage.Tests", "Tests\Furysoft.Queuing.AzureStorage.Tests\Furysoft.Queuing.AzureStorage.Tests.csproj", "{A0FB2D33-1996-46CF-AB2B-F0B968D89A2F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Furysoft.Queuing.AzureStorage.Tests", "Tests\Furysoft.Queuing.AzureStorage.Tests\Furysoft.Queuing.AzureStorage.Tests.csproj", "{A0FB2D33-1996-46CF-AB2B-F0B968D89A2F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

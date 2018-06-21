@@ -6,6 +6,14 @@
 
 namespace Furysoft.Queuing.AzureStorage.Logic
 {
+    using System;
+    using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Runtime.CompilerServices;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using System.Threading.Tasks.Dataflow;
+    using Entities;
     using Interfaces;
     using JetBrains.Annotations;
     using Microsoft.WindowsAzure.Storage;
@@ -25,15 +33,61 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         /// <summary>
         /// Initializes a new instance of the <see cref="QueueWrapper" /> class.
         /// </summary>
-        /// <param name="connectionString">The connection string.</param>
-        /// <param name="queueName">Name of the queue.</param>
-        public QueueWrapper([NotNull] string connectionString, [NotNull] string queueName)
+        /// <param name="queueEndpoint">The queue endpoint.</param>
+        public QueueWrapper([NotNull] QueueEndpoint queueEndpoint)
         {
-            var cloudStorageAccount = CloudStorageAccount.Parse(connectionString);
-
+            var cloudStorageAccount = CloudStorageAccount.Parse(queueEndpoint.ConnectionString);
             var queueClient = cloudStorageAccount.CreateCloudQueueClient();
+            this.cloudQueue = queueClient.GetQueueReference(queueEndpoint.QueueName);
+        }
 
-            this.cloudQueue = queueClient.GetQueueReference(queueName);
+        /// <summary>
+        /// Submits the message asynchronous.
+        /// </summary>
+        /// <param name="message">The message.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>
+        /// The <see cref="Task" />
+        /// </returns>
+        public async Task SubmitMessageAsync(
+            CloudQueueMessage message,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            await this.cloudQueue.AddMessageAsync(message).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Submits the messages asynchronous.
+        /// </summary>
+        /// <param name="messages">The messages.</param>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>
+        /// The <see cref="Task" />
+        /// </returns>
+        public async Task SubmitMessagesAsync(
+            IEnumerable<CloudQueueMessage> messages,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            var executionDatafileBlockOptions = new ExecutionDataflowBlockOptions
+            {
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = 100
+            };
+
+            var actionBlock = new ActionBlock<CloudQueueMessage>(
+                async entity => { await this.SubmitMessageAsync(entity, cancellationToken).ConfigureAwait(false); },
+                executionDatafileBlockOptions);
+
+            foreach (var message in messages)
+            {
+                actionBlock.Post(message);
+            }
+
+            actionBlock.Complete();
+
+            await actionBlock.Completion.ConfigureAwait(false);
         }
     }
 }
