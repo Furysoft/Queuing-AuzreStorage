@@ -6,6 +6,7 @@
 
 namespace Furysoft.Queuing.AzureStorage.Logic
 {
+    using System;
     using System.Threading;
     using Core;
     using Interfaces;
@@ -48,6 +49,16 @@ namespace Furysoft.Queuing.AzureStorage.Logic
             this.pumpProcessor = pumpProcessor;
             this.messageSerializer = messageSerializer;
         }
+
+        /// <summary>
+        /// Occurs when [batch submitted].
+        /// </summary>
+        public event EventHandler<int> BatchSubmitted;
+
+        /// <summary>
+        /// Occurs when [buffer empty].
+        /// </summary>
+        public event EventHandler BufferEmpty;
 
         /// <summary>Adds the message.</summary>
         /// <typeparam name="TEntity">The type of the entity.</typeparam>

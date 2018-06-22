@@ -23,11 +23,13 @@
 
 
   <ItemGroup>
-    <PackageReference Include="Furysoft.Queuing.Core" Version="1.0.1" />
+    <PackageReference Include="Furysoft.Queuing.Core" Version="1.0.2" />
     <PackageReference Include="Furysoft.Serializers" Version="1.0.1" />
-    <PackageReference Include="Furysoft.Serializers.Versioning" Version="1.0.0" />
+    <PackageReference Include="Furysoft.Serializers.Versioning" Version="1.0.1" />
     <PackageReference Include="Furysoft.Versioning" Version="1.0.4" />
     <PackageReference Include="Jetbrains.Annotations" Version="11.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="2.1.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="2.1.1" />
     <PackageReference Include="Stylecop.Analyzers" Version="1.0.2" PrivateAssets="All" />
     <PackageReference Include="System.Reactive" Version="4.0.0" />
     <PackageReference Include="System.Threading.Tasks.Dataflow" Version="4.9.0" />
