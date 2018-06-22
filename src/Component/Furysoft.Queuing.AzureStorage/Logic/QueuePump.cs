@@ -69,7 +69,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         public void AddMessage<TEntity>(TEntity message)
             where TEntity : class
         {
-            var serializeMessage = this.messageSerializer.SerializeMessage((object)message);
+            var serializeMessage = this.messageSerializer.SerializeMessage(message);
 
             var cloudQueueMessage = new CloudQueueMessage(serializeMessage);
 
