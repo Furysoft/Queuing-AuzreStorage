@@ -6,6 +6,7 @@
 
 namespace Furysoft.Queuing.AzureStorage.Interfaces.Pump
 {
+    using System;
     using System.Threading;
     using Microsoft.WindowsAzure.Storage.Queue;
 
@@ -14,6 +15,16 @@ namespace Furysoft.Queuing.AzureStorage.Interfaces.Pump
     /// </summary>
     public interface IPumpProcessor
     {
+        /// <summary>
+        /// Occurs when [batch submitted].
+        /// </summary>
+        event EventHandler<int> BatchSubmitted;
+
+        /// <summary>
+        /// Occurs when [buffer empty].
+        /// </summary>
+        event EventHandler BufferEmpty;
+
         /// <summary>
         /// Adds the message.
         /// </summary>

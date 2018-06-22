@@ -15,6 +15,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
     using Interfaces;
     using Interfaces.Pump;
     using JetBrains.Annotations;
+    using Microsoft.Extensions.Logging;
     using Microsoft.WindowsAzure.Storage.Queue;
 
     /// <summary>
@@ -22,6 +23,12 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
     /// </summary>
     internal sealed class PumpProcessor : IPumpProcessor
     {
+        /// <summary>
+        /// The logger
+        /// </summary>
+        [NotNull]
+        private readonly ILogger logger;
+
         /// <summary>
         /// The queue wrapper
         /// </summary>
@@ -34,13 +41,26 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
         private ConcurrentBag<CloudQueueMessage> subject = new ConcurrentBag<CloudQueueMessage>();
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PumpProcessor"/> class.
+        /// Initializes a new instance of the <see cref="PumpProcessor" /> class.
         /// </summary>
+        /// <param name="loggerFactory">The logger factory.</param>
         /// <param name="queueWrapper">The queue wrapper.</param>
-        public PumpProcessor([NotNull] IQueueWrapper queueWrapper)
+        public PumpProcessor([NotNull] ILoggerFactory loggerFactory, [NotNull] IQueueWrapper queueWrapper)
         {
             this.queueWrapper = queueWrapper;
+
+            this.logger = loggerFactory.CreateLogger<PumpProcessor>();
         }
+
+        /// <summary>
+        /// Occurs when [batch submitted].
+        /// </summary>
+        public event EventHandler<int> BatchSubmitted;
+
+        /// <summary>
+        /// Occurs when [buffer empty].
+        /// </summary>
+        public event EventHandler BufferEmpty;
 
         /// <summary>
         /// Adds the message.
@@ -70,6 +90,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
 
                         if (this.subject.Count == 0)
                         {
+                            this.BufferEmpty?.Invoke(this, EventArgs.Empty);
                             continue;
                         }
 
@@ -89,7 +110,14 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
                         var timeRemaining = TimeSpan.FromSeconds(1) - sw.Elapsed;
                         delay = timeRemaining.Milliseconds > 0 ? timeRemaining : TimeSpan.Zero;
 
-                        Console.WriteLine($"Submitted {enumerable.Count} of {exchange.Count} in {sw.ElapsedMilliseconds}ms at @ {DateTime.UtcNow.Second}");
+                        this.logger.LogDebug(
+                            "Submitted {0} of {1} in {2}ms at @ {3}",
+                            enumerable.Count,
+                            exchange.Count,
+                            sw.ElapsedMilliseconds,
+                            DateTime.UtcNow.Second);
+
+                        this.BatchSubmitted?.Invoke(this, enumerable.Count);
                     }
                 });
         }
