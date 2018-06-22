@@ -67,6 +67,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         /// <typeparam name="TEntity">The type of the entity.</typeparam>
         /// <param name="message">The message.</param>
         public void AddMessage<TEntity>(TEntity message)
+            where TEntity : class
         {
             var serializeMessage = this.messageSerializer.SerializeMessage((object)message);
 
