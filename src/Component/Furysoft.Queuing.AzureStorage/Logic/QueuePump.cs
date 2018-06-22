@@ -48,6 +48,9 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         {
             this.pumpProcessor = pumpProcessor;
             this.messageSerializer = messageSerializer;
+
+            pumpProcessor.BatchSubmitted += (sender, i) => this.BatchSubmitted?.Invoke(sender, i);
+            pumpProcessor.BufferEmpty += (sender, i) => this.BufferEmpty?.Invoke(sender, i);
         }
 
         /// <summary>
