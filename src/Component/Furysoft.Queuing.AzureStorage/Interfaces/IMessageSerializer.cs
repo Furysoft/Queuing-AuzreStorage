@@ -17,8 +17,7 @@ namespace Furysoft.Queuing.AzureStorage.Interfaces
         /// <typeparam name="TEntity">The type of the entity.</typeparam>
         /// <param name="source">The source.</param>
         /// <returns>The <see cref="string"/></returns>
-        string SerializeMessage<TEntity>(TEntity source) 
-            where TEntity: class;
-
+        string SerializeMessage<TEntity>(TEntity source)
+            where TEntity : class;
     }
 }
