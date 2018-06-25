@@ -28,8 +28,10 @@ namespace Furysoft.Queuing.AzureStorage.Interfaces.Pump
         /// <summary>
         /// Adds the message.
         /// </summary>
+        /// <typeparam name="TEntity">The type of the entity.</typeparam>
         /// <param name="message">The message.</param>
-        void AddMessage(CloudQueueMessage message);
+        void AddMessage<TEntity>(TEntity message)
+            where TEntity : class;
 
         /// <summary>
         /// Starts the specified cancellation token.

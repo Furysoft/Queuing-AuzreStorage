@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="PumpProcessor.cs" company="Simon Paramore">
+// <copyright file="VersionedMessagePumpProcessor.cs" company="Simon Paramore">
 // © 2017, Simon Paramore
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
@@ -8,27 +8,38 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
 {
     using System;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
+    using Entities.Configuration;
+    using Helpers;
     using Interfaces;
     using Interfaces.Pump;
     using JetBrains.Annotations;
     using Microsoft.Extensions.Logging;
     using Microsoft.WindowsAzure.Storage.Queue;
     using Serializers;
+    using Serializers.Versioning;
+    using Versioning;
 
     /// <summary>
-    /// The Pump Processor
+    /// The Versioned Message Pump Processor
     /// </summary>
-    internal sealed class PumpProcessor : IPumpProcessor
+    internal sealed class VersionedMessagePumpProcessor : IPumpProcessor
     {
         /// <summary>
         /// The logger
         /// </summary>
         [NotNull]
         private readonly ILogger logger;
+
+        /// <summary>
+        /// The pump configuration
+        /// </summary>
+        [NotNull]
+        private readonly PumpConfiguration pumpConfiguration;
 
         /// <summary>
         /// The queue wrapper
@@ -43,23 +54,35 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
         private readonly ISerializer serializer;
 
         /// <summary>
-        /// The subject
+        /// The serializer settings
         /// </summary>
-        private ConcurrentBag<CloudQueueMessage> subject = new ConcurrentBag<CloudQueueMessage>();
+        [NotNull]
+        private readonly SerializerSettings serializerSettings;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PumpProcessor" /> class.
+        /// The subject
+        /// </summary>
+        private ConcurrentBag<VersionedMessage> subject = new ConcurrentBag<VersionedMessage>();
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="VersionedMessagePumpProcessor" /> class.
         /// </summary>
         /// <param name="loggerFactory">The logger factory.</param>
         /// <param name="queueWrapper">The queue wrapper.</param>
         /// <param name="serializer">The serializer.</param>
-        public PumpProcessor(
+        /// <param name="serializerSettings">The serializer settings.</param>
+        /// <param name="pumpConfiguration">The pump configuration.</param>
+        public VersionedMessagePumpProcessor(
             [NotNull] ILoggerFactory loggerFactory,
             [NotNull] IQueueWrapper queueWrapper,
-            [NotNull] ISerializer serializer)
+            [NotNull] ISerializer serializer,
+            [NotNull] SerializerSettings serializerSettings,
+            [NotNull] PumpConfiguration pumpConfiguration)
         {
             this.queueWrapper = queueWrapper;
             this.serializer = serializer;
+            this.serializerSettings = serializerSettings;
+            this.pumpConfiguration = pumpConfiguration;
 
             this.logger = loggerFactory.CreateLogger<PumpProcessor>();
         }
@@ -82,11 +105,9 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
         public void AddMessage<TEntity>(TEntity message)
             where TEntity : class
         {
-            var body = this.serializer.SerializeToString(message);
+            var body = message.SerializeToVersionedMessage(this.serializerSettings.SerializerType);
 
-            var cloudQueueMessage = new CloudQueueMessage(body);
-
-            this.subject.Add(cloudQueueMessage);
+            this.subject.Add(body);
         }
 
         /// <summary>
@@ -98,7 +119,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
             Task.Run(
                 async () =>
                 {
-                    var delay = TimeSpan.FromSeconds(1);
+                    var delay = this.pumpConfiguration.ThrottleTime;
                     while (true)
                     {
                         if (cancellationToken.IsCancellationRequested)
@@ -112,30 +133,57 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
                             continue;
                         }
 
+                        var takeCount = this.pumpConfiguration.MaxRequestsPerThrottleTime *
+                                        this.pumpConfiguration.MaxBatchSize;
+
                         await Task.Delay(delay).ConfigureAwait(false);
-                        var exchange = Interlocked.Exchange(ref this.subject, new ConcurrentBag<CloudQueueMessage>()).ToList();
-                        foreach (var cloudQueueMessage in exchange.Skip(2000))
+                        var exchange = Interlocked.Exchange(ref this.subject, new ConcurrentBag<VersionedMessage>()).ToList();
+                        foreach (var cloudQueueMessage in exchange.Skip(takeCount))
                         {
                             this.subject.Add(cloudQueueMessage);
                         }
 
-                        var enumerable = exchange.Take(2000).ToList();
+                        List<CloudQueueMessage> submitMessages;
+                        if (this.pumpConfiguration.MaxBatchSize > 1)
+                        {
+                            submitMessages = exchange
+                                .Take(takeCount)
+                                .BatchMessages(this.pumpConfiguration.MaxBatchSize)
+                                .Select(
+                                    r =>
+                                    {
+                                        var body = this.serializer.SerializeToString(r);
+                                        return new CloudQueueMessage(body);
+                                    })
+                                .ToList();
+                        }
+                        else
+                        {
+                            submitMessages = exchange
+                                .Take(takeCount)
+                                .Select(
+                                r =>
+                                {
+                                    var body = this.serializer.SerializeToString(r);
+                                    return new CloudQueueMessage(body);
+                                }).ToList();
+                        }
 
                         var sw = Stopwatch.StartNew();
-                        await this.queueWrapper.SubmitMessagesAsync(enumerable).ConfigureAwait(false);
+                        await this.queueWrapper.SubmitMessagesAsync(submitMessages).ConfigureAwait(false);
                         sw.Stop();
 
-                        var timeRemaining = TimeSpan.FromSeconds(1) - sw.Elapsed;
+                        var timeRemaining = delay - sw.Elapsed;
                         delay = timeRemaining.Milliseconds > 0 ? timeRemaining : TimeSpan.Zero;
 
                         this.logger.LogDebug(
                             "Submitted {0} of {1} in {2}ms at @ {3}",
-                            enumerable.Count,
+                            submitMessages.Count,
                             exchange.Count,
                             sw.ElapsedMilliseconds,
                             DateTime.UtcNow.Second);
 
-                        this.BatchSubmitted?.Invoke(this, enumerable.Count);
+                        this.BatchSubmitted?.Invoke(this, submitMessages.Count);
                     }
                 });
         }
