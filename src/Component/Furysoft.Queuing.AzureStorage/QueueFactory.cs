@@ -8,11 +8,11 @@ namespace Furysoft.Queuing.AzureStorage
 {
     using Core;
     using Entities;
-    using Interfaces.Pump;
+    using Entities.Configuration;
     using Logic;
     using Logic.Pump;
+    using Logic.Wrappers;
     using Microsoft.Extensions.Logging;
-    using Serializers;
 
     /// <summary>
     /// The Queue Factory
@@ -22,40 +22,55 @@ namespace Furysoft.Queuing.AzureStorage
         /// <summary>
         /// Creates this instance.
         /// </summary>
-        /// <param name="queueEndpoint">The queue endpoint.</param>
         /// <param name="queueConfiguration">The queue configuration.</param>
         /// <param name="loggerFactory">The logger factory.</param>
         /// <returns>
         /// The <see cref="IQueue" />
         /// </returns>
         public static IQueue Create(
-            QueueEndpoint queueEndpoint,
             QueueConfiguration queueConfiguration,
             ILoggerFactory loggerFactory = null)
         {
             var logger = loggerFactory ?? new LoggerFactory();
 
-            var serializer = SerializerFactory.Create(queueConfiguration.SerializerSettings.SerializerType);
+            var queueEndpoint = new QueueEndpoint
+            {
+                ConnectionString = queueConfiguration.QueueConnectionString,
+                QueueName = queueConfiguration.QueueName
+            };
 
-            var messageSerializer = new MessageSerializer(queueConfiguration.SerializerSettings);
+            var serializerSettings = new SerializerSettings
+            {
+                SerializerType = queueConfiguration.SerializerType
+            };
+
+            var batchSettings = new BatchSettings
+            {
+                MaxQueueMessagesPerSchedule = queueConfiguration.MaxQueueMessagesPerSchedule,
+                MaxMessagesPerQueueMessage = queueConfiguration.MaxMessagesPerQueueMessage
+            };
+
+            var scheduleSettings = new ScheduleSettings
+            {
+                ThrottleTime = queueConfiguration.ThrottleTime
+            };
+
             var queueWrapper = new QueueWrapper(queueEndpoint);
+            var messageSerializer = new MessageSerializer(serializerSettings);
+            var queueMessageSerializer = new QueueMessageSerializer(batchSettings, messageSerializer);
 
-            IPumpProcessor pumpProcessor;
-            if (queueConfiguration.SerializerSettings.UseVersionedMessages)
-            {
-                pumpProcessor = new VersionedMessagePumpProcessor(
-                    logger,
-                    queueWrapper,
-                    serializer,
-                    queueConfiguration.SerializerSettings,
-                    queueConfiguration.PumpConfiguration);
-            }
-            else
-            {
-                pumpProcessor = new PumpProcessor(logger, queueWrapper, serializer);
-            }
+            var buffer = new Buffer(logger, queueWrapper, queueMessageSerializer);
 
-            var queuePump = new QueuePump(pumpProcessor, messageSerializer);
+            var stopwatchFactory = new StopwatchFactory();
+            var delayCalculator = new DelayCalculator();
+            var pumpProcessor = new PumpProcessor(
+                logger,
+                buffer,
+                stopwatchFactory,
+                delayCalculator,
+                scheduleSettings);
+
+            var queuePump = new QueuePump(buffer, pumpProcessor);
 
             return new Queue(queuePump);
         }

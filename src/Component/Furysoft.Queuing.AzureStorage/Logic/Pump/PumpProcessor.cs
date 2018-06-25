@@ -7,17 +7,13 @@
 namespace Furysoft.Queuing.AzureStorage.Logic.Pump
 {
     using System;
-    using System.Collections.Concurrent;
-    using System.Diagnostics;
-    using System.Linq;
     using System.Threading;
     using System.Threading.Tasks;
-    using Interfaces;
+    using Entities.Configuration;
     using Interfaces.Pump;
+    using Interfaces.Wrappers;
     using JetBrains.Annotations;
     using Microsoft.Extensions.Logging;
-    using Microsoft.WindowsAzure.Storage.Queue;
-    using Serializers;
 
     /// <summary>
     /// The Pump Processor
@@ -25,41 +21,54 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
     internal sealed class PumpProcessor : IPumpProcessor
     {
         /// <summary>
+        /// The buffer
+        /// </summary>
+        [NotNull]
+        private readonly IBuffer buffer;
+
+        /// <summary>
+        /// The delay calculator
+        /// </summary>
+        [NotNull]
+        private readonly IDelayCalculator delayCalculator;
+
+        /// <summary>
         /// The logger
         /// </summary>
         [NotNull]
         private readonly ILogger logger;
 
         /// <summary>
-        /// The queue wrapper
+        /// The schedule settings
         /// </summary>
         [NotNull]
-        private readonly IQueueWrapper queueWrapper;
+        private readonly ScheduleSettings scheduleSettings;
 
         /// <summary>
-        /// The serializer
+        /// The stopwatch
         /// </summary>
         [NotNull]
-        private readonly ISerializer serializer;
-
-        /// <summary>
-        /// The subject
-        /// </summary>
-        private ConcurrentBag<CloudQueueMessage> subject = new ConcurrentBag<CloudQueueMessage>();
+        private readonly IStopwatchFactory stopwatchFactory;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PumpProcessor" /> class.
         /// </summary>
         /// <param name="loggerFactory">The logger factory.</param>
-        /// <param name="queueWrapper">The queue wrapper.</param>
-        /// <param name="serializer">The serializer.</param>
+        /// <param name="buffer">The buffer.</param>
+        /// <param name="stopwatchFactory">The stopwatch factory.</param>
+        /// <param name="delayCalculator">The delay calculator.</param>
+        /// <param name="scheduleSettings">The schedule settings.</param>
         public PumpProcessor(
             [NotNull] ILoggerFactory loggerFactory,
-            [NotNull] IQueueWrapper queueWrapper,
-            [NotNull] ISerializer serializer)
+            [NotNull] IBuffer buffer,
+            [NotNull] IStopwatchFactory stopwatchFactory,
+            [NotNull] IDelayCalculator delayCalculator,
+            [NotNull] ScheduleSettings scheduleSettings)
         {
-            this.queueWrapper = queueWrapper;
-            this.serializer = serializer;
+            this.buffer = buffer;
+            this.stopwatchFactory = stopwatchFactory;
+            this.delayCalculator = delayCalculator;
+            this.scheduleSettings = scheduleSettings;
 
             this.logger = loggerFactory.CreateLogger<PumpProcessor>();
         }
@@ -75,30 +84,19 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
         public event EventHandler BufferEmpty;
 
         /// <summary>
-        /// Adds the message.
-        /// </summary>
-        /// <typeparam name="TEntity">The type of the entity.</typeparam>
-        /// <param name="message">The message.</param>
-        public void AddMessage<TEntity>(TEntity message)
-            where TEntity : class
-        {
-            var body = this.serializer.SerializeToString(message);
-
-            var cloudQueueMessage = new CloudQueueMessage(body);
-
-            this.subject.Add(cloudQueueMessage);
-        }
-
-        /// <summary>
-        /// Starts the specified cancellation token.
+        /// Starts this instance.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
-        public void Start(CancellationToken cancellationToken)
+        public void Run(CancellationToken cancellationToken)
         {
             Task.Run(
                 async () =>
                 {
-                    var delay = TimeSpan.FromSeconds(1);
+                    this.logger.LogInformation("Starting Queue Pump Processor @ {0}", DateTime.UtcNow);
+
+                    var delay = this.scheduleSettings.ThrottleTime;
+
+                    /*  Main Pump Loop */
                     while (true)
                     {
                         if (cancellationToken.IsCancellationRequested)
@@ -106,38 +104,29 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
                             break;
                         }
 
-                        if (this.subject.Count == 0)
-                        {
-                            this.BufferEmpty?.Invoke(this, EventArgs.Empty);
-                            continue;
-                        }
+                        await Task.Delay(delay, CancellationToken.None).ConfigureAwait(false);
 
-                        await Task.Delay(delay).ConfigureAwait(false);
-                        var exchange = Interlocked.Exchange(ref this.subject, new ConcurrentBag<CloudQueueMessage>()).ToList();
-                        foreach (var cloudQueueMessage in exchange.Skip(2000))
-                        {
-                            this.subject.Add(cloudQueueMessage);
-                        }
-
-                        var enumerable = exchange.Take(2000).ToList();
-
-                        var sw = Stopwatch.StartNew();
-                        await this.queueWrapper.SubmitMessagesAsync(enumerable).ConfigureAwait(false);
+                        /* Process the buffer */
+                        var sw = this.stopwatchFactory.StartNew();
+                        var bufferProcessResponse = await this.buffer.ProcessBufferAsync(CancellationToken.None).ConfigureAwait(false);
                         sw.Stop();
 
-                        var timeRemaining = TimeSpan.FromSeconds(1) - sw.Elapsed;
-                        delay = timeRemaining.Milliseconds > 0 ? timeRemaining : TimeSpan.Zero;
+                        /* Trigger events based on what was processed */
+                        if (bufferProcessResponse.Processed > 0)
+                        {
+                            this.BatchSubmitted?.Invoke(this, bufferProcessResponse.Processed);
+                        }
 
-                        this.logger.LogDebug(
-                            "Submitted {0} of {1} in {2}ms at @ {3}",
-                            enumerable.Count,
-                            exchange.Count,
-                            sw.ElapsedMilliseconds,
-                            DateTime.UtcNow.Second);
+                        if (bufferProcessResponse.Remaining == 0)
+                        {
+                            this.BufferEmpty?.Invoke(this, EventArgs.Empty);
+                        }
 
-                        this.BatchSubmitted?.Invoke(this, enumerable.Count);
+                        delay = this.delayCalculator.GetNextDelay(sw.Elapsed, this.scheduleSettings.ThrottleTime);
                     }
-                });
+                }, CancellationToken.None);
+
+            this.logger.LogInformation("Stopping Queue Pump Processor @ {0}", DateTime.UtcNow);
         }
     }
 }

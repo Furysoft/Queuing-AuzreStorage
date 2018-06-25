@@ -1,21 +1,26 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="SerializerSettings.cs" company="Simon Paramore">
+// <copyright file="IStopwatch.cs" company="Simon Paramore">
 // © 2017, Simon Paramore
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace Furysoft.Queuing.AzureStorage.Entities.Configuration
+namespace Furysoft.Queuing.AzureStorage.Interfaces.Wrappers
 {
-    using Serializers.Entities;
+    using System;
 
     /// <summary>
-    /// The Serializer Settings
+    /// The Stopwatch Interface
     /// </summary>
-    public sealed class SerializerSettings
+    internal interface IStopwatch
     {
         /// <summary>
-        /// Gets or sets the type of the serializer.
+        /// Gets the elapsed.
         /// </summary>
-        public SerializerType SerializerType { get; set; }
+        TimeSpan Elapsed { get; }
+
+        /// <summary>
+        /// Stops this instance.
+        /// </summary>
+        void Stop();
     }
 }

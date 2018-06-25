@@ -1,21 +1,20 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="SerializerSettings.cs" company="Simon Paramore">
+// <copyright file="IStopwatchFactory.cs" company="Simon Paramore">
 // © 2017, Simon Paramore
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
 
-namespace Furysoft.Queuing.AzureStorage.Entities.Configuration
+namespace Furysoft.Queuing.AzureStorage.Interfaces.Wrappers
 {
-    using Serializers.Entities;
-
     /// <summary>
-    /// The Serializer Settings
+    /// The Stopwatch Factory
     /// </summary>
-    public sealed class SerializerSettings
+    internal interface IStopwatchFactory
     {
         /// <summary>
-        /// Gets or sets the type of the serializer.
+        /// Starts the new.
         /// </summary>
-        public SerializerType SerializerType { get; set; }
+        /// <returns>The <see cref="IStopwatch"/></returns>
+        IStopwatch StartNew();
     }
 }

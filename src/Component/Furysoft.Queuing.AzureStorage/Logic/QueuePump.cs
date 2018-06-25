@@ -9,10 +9,8 @@ namespace Furysoft.Queuing.AzureStorage.Logic
     using System;
     using System.Threading;
     using Core;
-    using Interfaces;
     using Interfaces.Pump;
     using JetBrains.Annotations;
-    using Microsoft.WindowsAzure.Storage.Queue;
 
     /// <summary>
     /// The Queue Pump
@@ -21,10 +19,10 @@ namespace Furysoft.Queuing.AzureStorage.Logic
     public sealed class QueuePump : IQueuePump
     {
         /// <summary>
-        /// The message serializer
+        /// The buffer
         /// </summary>
         [NotNull]
-        private readonly IMessageSerializer messageSerializer;
+        private readonly IBuffer buffer;
 
         /// <summary>
         /// The pump processor
@@ -40,14 +38,14 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         /// <summary>
         /// Initializes a new instance of the <see cref="QueuePump" /> class.
         /// </summary>
+        /// <param name="buffer">The buffer.</param>
         /// <param name="pumpProcessor">The pump processor.</param>
-        /// <param name="messageSerializer">The message serializer.</param>
-        public QueuePump(
-            [NotNull] IPumpProcessor pumpProcessor,
-            [NotNull] IMessageSerializer messageSerializer)
+        internal QueuePump(
+            [NotNull] IBuffer buffer,
+            [NotNull] IPumpProcessor pumpProcessor)
         {
+            this.buffer = buffer;
             this.pumpProcessor = pumpProcessor;
-            this.messageSerializer = messageSerializer;
 
             pumpProcessor.BatchSubmitted += (sender, i) => this.BatchSubmitted?.Invoke(sender, i);
             pumpProcessor.BufferEmpty += (sender, i) => this.BufferEmpty?.Invoke(sender, i);
@@ -69,11 +67,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         public void AddMessage<TEntity>(TEntity message)
             where TEntity : class
         {
-            var serializeMessage = this.messageSerializer.SerializeMessage(message);
-
-            var cloudQueueMessage = new CloudQueueMessage(serializeMessage);
-
-            this.pumpProcessor.AddMessage(cloudQueueMessage);
+            this.buffer.AddMessage(message);
         }
 
         /// <summary>Starts the Queue Pump.</summary>
@@ -81,7 +75,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         public void Start(CancellationToken cancellationToken = default(CancellationToken))
         {
             var token = this.cancellationTokenSource.Token;
-            this.pumpProcessor.Start(token);
+            this.pumpProcessor.Run(token);
         }
 
         /// <summary>

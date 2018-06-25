@@ -8,12 +8,11 @@ namespace Furysoft.Queuing.AzureStorage.Interfaces.Pump
 {
     using System;
     using System.Threading;
-    using Microsoft.WindowsAzure.Storage.Queue;
 
     /// <summary>
     /// The Pump Processor Interface
     /// </summary>
-    public interface IPumpProcessor
+    internal interface IPumpProcessor
     {
         /// <summary>
         /// Occurs when [batch submitted].
@@ -26,17 +25,9 @@ namespace Furysoft.Queuing.AzureStorage.Interfaces.Pump
         event EventHandler BufferEmpty;
 
         /// <summary>
-        /// Adds the message.
-        /// </summary>
-        /// <typeparam name="TEntity">The type of the entity.</typeparam>
-        /// <param name="message">The message.</param>
-        void AddMessage<TEntity>(TEntity message)
-            where TEntity : class;
-
-        /// <summary>
-        /// Starts the specified cancellation token.
+        /// Starts this instance.
         /// </summary>
         /// <param name="cancellationToken">The cancellation token.</param>
-        void Start(CancellationToken cancellationToken);
+        void Run(CancellationToken cancellationToken);
     }
 }

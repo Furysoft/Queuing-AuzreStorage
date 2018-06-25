@@ -1,6 +1,6 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="LinqHelpers.cs" company="Email Hippo Ltd">
-//   © Email Hippo Ltd
+// <copyright file="LinqHelpers.cs" company="Simon Paramore">
+// © 2017, Simon Paramore
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Helpers
     /// <summary>
     /// The Linq Helpers
     /// </summary>
-    public static class LinqHelpers
+    internal static class LinqHelpers
     {
         /// <summary>
         /// Batches the messages.

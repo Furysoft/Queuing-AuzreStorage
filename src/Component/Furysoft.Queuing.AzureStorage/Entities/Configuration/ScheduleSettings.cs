@@ -1,21 +1,24 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="SerializerSettings.cs" company="Simon Paramore">
+// <copyright file="ScheduleSettings.cs" company="Simon Paramore">
 // © 2017, Simon Paramore
 // </copyright>
 // --------------------------------------------------------------------------------------------------------------------
 
 namespace Furysoft.Queuing.AzureStorage.Entities.Configuration
 {
-    using Serializers.Entities;
+    using System;
 
     /// <summary>
-    /// The Serializer Settings
+    /// The Schedule Settings
     /// </summary>
-    public sealed class SerializerSettings
+    public sealed class ScheduleSettings
     {
         /// <summary>
-        /// Gets or sets the type of the serializer.
+        /// Gets or sets the Timespan to limit requests to.
         /// </summary>
-        public SerializerType SerializerType { get; set; }
+        /// <remarks>
+        /// Default 1 second
+        /// </remarks>
+        public TimeSpan ThrottleTime { get; set; } = TimeSpan.FromSeconds(1);
     }
 }

@@ -6,10 +6,7 @@
 
 namespace Furysoft.Queuing.AzureStorage.Logic
 {
-    using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Threading.Tasks.Dataflow;
@@ -22,7 +19,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic
     /// <summary>
     /// The Queue Wrapper
     /// </summary>
-    public sealed class QueueWrapper : IQueueWrapper
+    internal sealed class QueueWrapper : IQueueWrapper
     {
         /// <summary>
         /// The cloud queue client

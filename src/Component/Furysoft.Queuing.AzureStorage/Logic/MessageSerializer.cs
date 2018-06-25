@@ -11,11 +11,12 @@ namespace Furysoft.Queuing.AzureStorage.Logic
     using JetBrains.Annotations;
     using Serializers;
     using Serializers.Versioning;
+    using Versioning;
 
     /// <summary>
     /// The Message Serializer
     /// </summary>
-    public sealed class MessageSerializer : IMessageSerializer
+    internal sealed class MessageSerializer : IMessageSerializer
     {
         /// <summary>
         /// The serializer settings
@@ -35,23 +36,40 @@ namespace Furysoft.Queuing.AzureStorage.Logic
         /// <summary>
         /// Serializes the message.
         /// </summary>
+        /// <param name="source">The source.</param>
+        /// <returns>
+        /// The <see cref="string" />
+        /// </returns>
+        public string SerializeToString(VersionedMessage source)
+        {
+            var serializerType = this.serializerSettings.SerializerType;
+            return source.SerializeToString(serializerType);
+        }
+
+        /// <summary>
+        /// Serializes to string.
+        /// </summary>
+        /// <param name="source">The source.</param>
+        /// <returns>
+        /// The <see cref="string" />
+        /// </returns>
+        public string SerializeToString(BatchedVersionedMessage source)
+        {
+            var serializerType = this.serializerSettings.SerializerType;
+            return source.SerializeToString(serializerType);
+        }
+
+        /// <summary>
+        /// Serializes to versioned message.
+        /// </summary>
         /// <typeparam name="TEntity">The type of the entity.</typeparam>
         /// <param name="source">The source.</param>
-        /// <returns>The <see cref="string"/></returns>
-        public string SerializeMessage<TEntity>(TEntity source)
+        /// <returns>The <see cref="VersionedMessage"/></returns>
+        public VersionedMessage SerializeToVersionedMessage<TEntity>(TEntity source)
             where TEntity : class
         {
             var serializerType = this.serializerSettings.SerializerType;
-            var useVersionedMessages = this.serializerSettings.UseVersionedMessages;
-
-            if (useVersionedMessages)
-            {
-                var vm = source.SerializeToVersionedMessage(serializerType);
-                var rtn = vm.SerializeToString(serializerType);
-                return rtn;
-            }
-
-            return source.SerializeToString(serializerType);
+            return source.SerializeToVersionedMessage(serializerType);
         }
     }
 }
