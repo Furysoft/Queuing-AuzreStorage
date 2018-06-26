@@ -7,6 +7,7 @@
 namespace Furysoft.Queuing.AzureStorage.Logic
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Threading;
     using Core;
     using Interfaces.Pump;
