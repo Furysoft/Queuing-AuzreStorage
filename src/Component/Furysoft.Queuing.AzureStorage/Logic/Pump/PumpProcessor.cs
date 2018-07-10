@@ -9,6 +9,7 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
     using System;
     using System.Threading;
     using System.Threading.Tasks;
+    using Entities.Buffer;
     using Entities.Configuration;
     using Interfaces.Pump;
     using Interfaces.Wrappers;
@@ -108,8 +109,21 @@ namespace Furysoft.Queuing.AzureStorage.Logic.Pump
 
                         /* Process the buffer */
                         var sw = this.stopwatchFactory.StartNew();
-                        var bufferProcessResponse = await this.buffer.ProcessBufferAsync(CancellationToken.None).ConfigureAwait(false);
-                        sw.Stop();
+
+                        BufferProcessResponse bufferProcessResponse;
+                        try
+                        {
+                            bufferProcessResponse = await this.buffer.ProcessBufferAsync(CancellationToken.None).ConfigureAwait(false);
+                        }
+                        catch (Exception e)
+                        {
+                            bufferProcessResponse = new BufferProcessResponse { Processed = -1, Remaining = -1 };
+                            this.logger.LogCritical(e, "Error carrying out process");
+                        }
+                        finally
+                        {
+                            sw.Stop();
+                        }
 
                         /* Trigger events based on what was processed */
                         if (bufferProcessResponse.Processed > 0)
